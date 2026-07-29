@@ -1,401 +1,318 @@
-import React, { useState, useEffect, useRef } from "react";
-import { initializeApp, getApps, getApp } from "firebase/app";
-import {
-  getAuth,
-  signOut,
-  onAuthStateChanged
-} from "firebase/auth";
-import {
-  getFirestore,
-  doc,
-  collection,
-  onSnapshot,
-  updateDoc,
-  deleteDoc,
-  query,
-  orderBy
-} from "firebase/firestore";
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Dashboard Organisasi - BudgetKu SaaS</title>
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-slate-50 p-4 md:p-8 font-sans text-slate-800 min-h-screen">
+  <div class="max-w-6xl mx-auto space-y-6">
 
-// --- KONFIGURASI FIREBASE ---
-// Pastikan Firebase sudah diinisialisasi sesuai dengan file config proyek Anda
-const firebaseConfig = {
-  apiKey: process.env.REACT_APP_FIREBASE_API_KEY || "YOUR_API_KEY",
-  authDomain: process.env.REACT_APP_FIREBASE_AUTH_DOMAIN || "YOUR_AUTH_DOMAIN",
-  projectId: process.env.REACT_APP_FIREBASE_PROJECT_ID || "YOUR_PROJECT_ID",
-  storageBucket: process.env.REACT_APP_FIREBASE_STORAGE_BUCKET || "YOUR_STORAGE_BUCKET",
-  messagingSenderId: process.env.REACT_APP_FIREBASE_MESSAGING_SENDER_ID || "YOUR_MESSAGING_SENDER_ID",
-  appId: process.env.REACT_APP_FIREBASE_APP_ID || "YOUR_APP_ID"
-};
-
-const app = !getApps().length ? initializeApp(firebaseConfig) : getApp();
-const auth = getAuth(app);
-const db = getFirestore(app);
-
-export default function WorkspaceDashboard({ workspaceId, onBackToWorkspaces }) {
-  // --- STATE ---
-  const [currentUser, setCurrentUser] = useState(null);
-  const [workspaceData, setWorkspaceData] = useState({ name: "Sample Organization" });
-  const [userRole, setUserRole] = useState("USER"); // ADMIN, EDITOR, USER
-  const [members, setMembers] = useState([]);
-  const [transactions, setTransactions] = useState([]);
-  
-  // State untuk Dropdown Profil & Loading Action
-  const [isProfileOpen, setIsProfileOpen] = useState(false);
-  const [isDeletingMember, setIsDeletingMember] = useState(null);
-  const dropdownRef = useRef(null);
-
-  // --- LISTEN AUTH USER ---
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
-      setCurrentUser(user);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  // --- CLOSE DROPDOWN SAAT KLIK DI LUAR ---
-  useEffect(() => {
-    function handleClickOutside(event) {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
-        setIsProfileOpen(false);
-      }
-    }
-    document.addEventListener("mousedown", handleClickOutside);
-    return () => document.removeEventListener("mousedown", handleClickOutside);
-  }, []);
-
-  // --- REAL-TIME LISTENERS FIRESTORE ---
-  useEffect(() => {
-    if (!workspaceId || !currentUser) return;
-
-    // 1. Listen Data Workspace
-    const unsubWorkspace = onSnapshot(doc(db, "workspaces", workspaceId), (docSnap) => {
-      if (docSnap.exists()) {
-        setWorkspaceData(docSnap.data());
-      }
-    });
-
-    // 2. Listen Members & Peran
-    const unsubMembers = onSnapshot(
-      collection(db, "workspaces", workspaceId, "members"),
-      (snapshot) => {
-        const memberList = snapshot.docs.map((docItem) => ({
-          id: docItem.id,
-          ...docItem.data()
-        }));
-        setMembers(memberList);
-
-        // Set role user yang sedang login
-        const myMemberData = memberList.find((m) => m.id === currentUser.uid);
-        if (myMemberData) {
-          setUserRole(myMemberData.role?.toUpperCase() || "USER");
-        }
-      }
-    );
-
-    // 3. Listen Transactions
-    const qTx = query(collection(db, "workspaces", workspaceId, "transactions"));
-    const unsubTx = onSnapshot(qTx, (snapshot) => {
-      const txList = snapshot.docs.map((docItem) => ({
-        id: docItem.id,
-        ...docItem.data()
-      }));
-      setTransactions(txList);
-    });
-
-    return () => {
-      unsubWorkspace();
-      unsubMembers();
-      unsubTx();
-    };
-  }, [workspaceId, currentUser]);
-
-  // --- HANDLING LOGOUT ---
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      window.location.reload();
-    } catch (err) {
-      alert("Gagal logout: " + err.message);
-    }
-  };
-
-  // --- HANDLING UPDATE ROLE MEMBER ---
-  const handleRoleChange = async (memberId, newRole) => {
-    try {
-      await updateDoc(doc(db, "workspaces", workspaceId, "members", memberId), {
-        role: newRole.toLowerCase()
-      });
-    } catch (err) {
-      alert("Gagal mengubah peran: " + err.message);
-    }
-  };
-
-  // --- HANDLING DELETE / REMOVE MEMBER ---
-  const handleRemoveMember = async (memberId, memberEmail) => {
-    const confirmDelete = window.confirm(
-      `Apakah Anda yakin ingin mengeluarkan "${memberEmail}" dari organisasi ini? Akses data mereka akan langsung dicabut.`
-    );
-
-    if (!confirmDelete) return;
-
-    setIsDeletingMember(memberId);
-    try {
-      await deleteDoc(doc(db, "workspaces", workspaceId, "members", memberId));
-      alert(`Anggota ${memberEmail} berhasil dikeluarkan.`);
-    } catch (err) {
-      alert("Gagal mengeluarkan anggota: " + err.message);
-    } finally {
-      setIsDeletingMember(null);
-    }
-  };
-
-  // --- KALKULASI RINGKASAN SALDO ---
-  const totalPemasukan = transactions
-    .filter((t) => t.type === "IN" || t.amount > 0)
-    .reduce((acc, curr) => acc + Number(curr.amount || 0), 0);
-
-  const totalPengeluaran = transactions
-    .filter((t) => t.type === "OUT" || t.amount < 0)
-    .reduce((acc, curr) => acc + Math.abs(Number(curr.amount || 0)), 0);
-
-  const sisaSaldo = totalPemasukan - totalPengeluaran;
-
-  return (
-    <div className="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-800">
-      <div className="max-w-6xl mx-auto space-y-6">
-
-        {/* --- 1. HEADER (LENGKAP DENGAN PROFILE DROPDOWN) --- */}
-        <header className="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-100">
-          <div className="flex items-center gap-3">
-            <button
-              onClick={onBackToWorkspaces}
-              className="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600"
-              title="Kembali ke Daftar Organisasi"
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15 19l-7-7 7-7" />
-              </svg>
-            </button>
-            <div>
-              <h1 className="text-xl font-bold text-slate-900">{workspaceData.name}</h1>
-              <span className={`inline-block text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
-                userRole === "ADMIN" ? "bg-purple-100 text-purple-700" :
-                userRole === "EDITOR" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"
-              }`}>
-                {userRole}
-              </span>
-            </div>
-          </div>
-
-          {/* PROFILE DROPDOWN MENU */}
-          <div className="relative" ref={dropdownRef}>
-            <button
-              onClick={() => setIsProfileOpen(!isProfileOpen)}
-              className="flex items-center gap-2 p-1.5 hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-200"
-            >
-              <div className="w-9 h-9 rounded-full bg-slate-800 text-white font-semibold flex items-center justify-center text-sm shadow-sm">
-                {currentUser?.email ? currentUser.email.charAt(0).toUpperCase() : "U"}
-              </div>
-              <div className="hidden sm:block text-left pr-1">
-                <p className="text-xs font-semibold text-slate-700 truncate max-w-[120px]">
-                  {currentUser?.email || "Pengguna"}
-                </p>
-                <p className="text-[10px] text-slate-400 capitalize">Akun Saya</p>
-              </div>
-              <svg className={`w-4 h-4 text-slate-400 transition-transform ${isProfileOpen ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 9l-7 7-7-7" />
-              </svg>
-            </button>
-
-            {/* POPUP MENU */}
-            {isProfileOpen && (
-              <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-50">
-                <div className="px-4 py-2 border-b border-slate-100">
-                  <p className="text-xs text-slate-400">Masuk sebagai</p>
-                  <p className="text-xs font-bold text-slate-800 truncate">{currentUser?.email}</p>
-                </div>
-
-                <button
-                  onClick={() => {
-                    setIsProfileOpen(false);
-                    if (onBackToWorkspaces) onBackToWorkspaces();
-                  }}
-                  className="w-full text-left px-4 py-2 text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-                  </svg>
-                  Ganti Organisasi
-                </button>
-
-                <div className="border-t border-slate-100 my-1"></div>
-
-                <button
-                  onClick={handleLogout}
-                  className="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-                  </svg>
-                  Keluar / Logout
-                </button>
-              </div>
-            )}
-          </div>
-        </header>
-
-        {/* --- 2. SUMMARY CARDS --- */}
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <div className="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Sisa Saldo Kas</p>
-            <p className="text-2xl font-extrabold text-slate-900">
-              Rp {sisaSaldo.toLocaleString("id-ID")}
-            </p>
-          </div>
-          <div className="bg-emerald-50/50 p-5 rounded-xl border border-emerald-100 shadow-sm">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-emerald-600 mb-1">Pemasukan</p>
-            <p className="text-2xl font-extrabold text-emerald-600">
-              Rp {totalPemasukan.toLocaleString("id-ID")}
-            </p>
-          </div>
-          <div className="bg-rose-50/50 p-5 rounded-xl border border-rose-100 shadow-sm">
-            <p className="text-[11px] font-bold uppercase tracking-wider text-rose-500 mb-1">Pengeluaran</p>
-            <p className="text-2xl font-extrabold text-rose-500">
-              Rp {totalPengeluaran.toLocaleString("id-ID")}
-            </p>
-          </div>
+    <!-- 1. HEADER (PROFILE DROPDOWN & LOGOUT) -->
+    <header class="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-100">
+      <div class="flex items-center gap-3">
+        <button id="btn-back" class="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600" title="Kembali ke Daftar Organisasi">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7" />
+          </svg>
+        </button>
+        <div>
+          <h1 id="workspace-title" class="text-xl font-bold text-slate-900">Memuat Organisasi...</h1>
+          <span id="user-role-badge" class="inline-block text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider bg-slate-100 text-slate-600">
+            USER
+          </span>
         </div>
+      </div>
 
-        {/* --- 3. TABEL RIWAYAT TRANSAKSI --- */}
-        <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm space-y-4">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <h2 className="font-bold text-slate-800">Riwayat Transaksi</h2>
-            <div className="flex gap-2">
-              <button className="px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-colors">
-                CSV
-              </button>
-              <button className="px-3 py-1.5 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700 transition-colors">
-                PDF
-              </button>
-            </div>
+      <!-- PROFILE MENU -->
+      <div class="relative">
+        <button id="btn-profile-toggle" class="flex items-center gap-2 p-1.5 hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-200">
+          <div id="user-avatar" class="w-9 h-9 rounded-full bg-slate-800 text-white font-semibold flex items-center justify-center text-sm shadow-sm">
+            U
           </div>
+          <div class="hidden sm:block text-left pr-1">
+            <p id="user-email-header" class="text-xs font-semibold text-slate-700 truncate max-w-[120px]">Pengguna</p>
+            <p class="text-[10px] text-slate-400 capitalize">Akun Saya</p>
+          </div>
+          <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
 
-          <div className="divide-y divide-slate-100">
-            {transactions.length === 0 ? (
-              <p className="text-xs text-slate-400 py-4 text-center">Belum ada transaksi recorded.</p>
-            ) : (
-              transactions.map((tx) => (
-                <div key={tx.id} className="py-3 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`w-9 h-9 rounded-full flex items-center justify-center ${
-                      tx.type === "IN" || tx.amount > 0 ? "bg-emerald-100 text-emerald-600" : "bg-rose-100 text-rose-600"
-                    }`}>
-                      {tx.type === "IN" || tx.amount > 0 ? "↑" : "↓"}
-                    </div>
-                    <div>
-                      <p className="text-sm font-semibold text-slate-800">{tx.title || tx.description}</p>
-                      <span className="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded mr-2">
-                        {tx.category || "Umum"}
-                      </span>
-                    </div>
-                  </div>
-                  <p className={`text-sm font-bold ${
-                    tx.type === "IN" || tx.amount > 0 ? "text-emerald-600" : "text-rose-600"
-                  }`}>
-                    {tx.type === "IN" || tx.amount > 0 ? "+" : "-"}Rp {Math.abs(tx.amount || 0).toLocaleString("id-ID")}
-                  </p>
-                </div>
-              ))
-            )}
+        <!-- DROPDOWN MENU MELAYANG -->
+        <div id="profile-dropdown-menu" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-50">
+          <div class="px-4 py-2 border-b border-slate-100">
+            <p class="text-xs text-slate-400">Masuk sebagai</p>
+            <p id="dropdown-email" class="text-xs font-bold text-slate-800 truncate">-</p>
           </div>
+          <button id="btn-switch-workspace" class="w-full text-left px-4 py-2 text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+            </svg>
+            Ganti Organisasi
+          </button>
+          <div class="border-t border-slate-100 my-1"></div>
+          <button id="btn-logout" class="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+            Keluar / Logout
+          </button>
         </div>
+      </div>
+    </header>
 
-        {/* --- 4. TABEL KELOLA ANGGOTA & PERAN (FITUR DELETE DI SINI) --- */}
-        <div className="bg-white p-6 rounded-xl border border-slate-100 shadow-sm space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <span className="text-purple-600">👥</span>
-              <h2 className="font-bold text-slate-800">Kelola Anggota & Peran</h2>
-            </div>
-            <span className="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-md uppercase">
-              KHUSUS ADMIN
-            </span>
-          </div>
-
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs">
-              <thead>
-                <tr className="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
-                  <th className="py-3 px-2">EMAIL</th>
-                  <th className="py-3 px-2">ROLE</th>
-                  <th className="py-3 px-2 text-right">AKSI</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-slate-100">
-                {members.map((member) => {
-                  const isMe = member.id === currentUser?.uid;
-                  const isAdminRole = userRole === "ADMIN";
-
-                  return (
-                    <tr key={member.id} className="hover:bg-slate-50/50">
-                      <td className="py-3 px-2 font-medium text-slate-700">
-                        {member.email} {isMe && <span className="text-indigo-600 font-bold">(Anda)</span>}
-                      </td>
-                      <td className="py-3 px-2">
-                        <span className={`px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
-                          member.role === "admin" ? "bg-purple-100 text-purple-700" :
-                          member.role === "editor" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"
-                        }`}>
-                          {member.role || "user"}
-                        </span>
-                      </td>
-                      <td className="py-3 px-2 text-right">
-                        {isMe ? (
-                          <span className="text-slate-300 font-bold mr-3">-</span>
-                        ) : (
-                          <div className="flex items-center justify-end gap-2">
-                            {/* DROPDOWN UBAH ROLE */}
-                            {isAdminRole && (
-                              <select
-                                value={member.role?.toLowerCase() || "user"}
-                                onChange={(e) => handleRoleChange(member.id, e.target.value)}
-                                className="bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-semibold text-slate-700 focus:outline-none focus:border-indigo-500"
-                              >
-                                <option value="user">User</option>
-                                <option value="editor">Editor</option>
-                                <option value="admin">Admin</option>
-                              </select>
-                            )}
-
-                            {/* TOMBOL DELETE / REMOVE MEMBER */}
-                            {isAdminRole && (
-                              <button
-                                onClick={() => handleRemoveMember(member.id, member.email)}
-                                disabled={isDeletingMember === member.id}
-                                className="p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded-lg transition-colors border border-transparent hover:border-rose-100"
-                                title="Keluarkan Anggota Ini"
-                              >
-                                {isDeletingMember === member.id ? (
-                                  <span className="text-[10px] text-rose-400">Removing...</span>
-                                ) : (
-                                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                                  </svg>
-                                )}
-                              </button>
-                            )}
-                          </div>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
+    <!-- 2. SUMMARY CARDS -->
+    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div class="bg-white p-5 rounded-xl border border-slate-100 shadow-sm">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-slate-400 mb-1">Sisa Saldo Kas</p>
+        <p id="card-saldo" class="text-2xl font-extrabold text-slate-900">Rp 0</p>
+      </div>
+      <div class="bg-emerald-50/50 p-5 rounded-xl border border-emerald-100 shadow-sm">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-emerald-600 mb-1">Pemasukan</p>
+        <p id="card-pemasukan" class="text-2xl font-extrabold text-emerald-600">Rp 0</p>
+      </div>
+      <div class="bg-rose-50/50 p-5 rounded-xl border border-rose-100 shadow-sm">
+        <p class="text-[11px] font-bold uppercase tracking-wider text-rose-500 mb-1">Pengeluaran</p>
+        <p id="card-pengeluaran" class="text-2xl font-extrabold text-rose-500">Rp 0</p>
       </div>
     </div>
-  );
-}
+
+    <!-- 3. RIWAYAT TRANSAKSI -->
+    <div class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="font-bold text-slate-800">Riwayat Transaksi</h2>
+        <div class="flex gap-2">
+          <button class="px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700">CSV</button>
+          <button class="px-3 py-1.5 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700">PDF</button>
+        </div>
+      </div>
+      <div id="tx-container" class="divide-y divide-slate-100">
+        <p class="text-xs text-slate-400 py-4 text-center">Memuat riwayat transaksi...</p>
+      </div>
+    </div>
+
+    <!-- 4. KELOLA ANGGOTA & PERAN (DENGAN TOMBOL HAPUS) -->
+    <div class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm space-y-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <span class="text-purple-600">👥</span>
+          <h2 class="font-bold text-slate-800">Kelola Anggota & Peran</h2>
+        </div>
+        <span class="text-[10px] font-bold bg-indigo-100 text-indigo-700 px-2.5 py-1 rounded-md uppercase">
+          KHUSUS ADMIN
+        </span>
+      </div>
+
+      <div class="overflow-x-auto">
+        <table class="w-full text-left text-xs">
+          <thead>
+            <tr class="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
+              <th class="py-3 px-2">EMAIL</th>
+              <th class="py-3 px-2">ROLE</th>
+              <th class="py-3 px-2 text-right">AKSI</th>
+            </tr>
+          </thead>
+          <tbody id="members-table-body" class="divide-y divide-slate-100">
+            <tr>
+              <td colspan="3" class="py-4 text-center text-slate-400">Memuat anggota...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- FIREBASE LOGIC (VANILLA JS MODULE) -->
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+    import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
+    import { getFirestore, doc, collection, onSnapshot, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+
+    // 1. ISI CONFIG FIREBASE DARI PROJECT ANDA
+    const firebaseConfig = {
+      // Pastikan disesuaikan dengan konfigurasi Firebase milik Anda
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+
+    // Ambil Workspace ID dari URL / LocalStorage
+    const urlParams = new URLSearchParams(window.location.search);
+    const workspaceId = urlParams.get('id') || localStorage.getItem('activeWorkspaceId');
+
+    let currentUser = null;
+    let currentUserRole = "USER";
+
+    // TOGGLE DROPDOWN PROFIL
+    const btnToggle = document.getElementById('btn-profile-toggle');
+    const dropdownMenu = document.getElementById('profile-dropdown-menu');
+
+    btnToggle.addEventListener('click', (e) => {
+      e.stopPropagation();
+      dropdownMenu.classList.toggle('hidden');
+    });
+
+    document.addEventListener('click', () => {
+      dropdownMenu.classList.add('hidden');
+    });
+
+    // BACK & SWITCH WORKSPACE
+    document.getElementById('btn-back').onclick = () => window.location.href = 'index.html';
+    document.getElementById('btn-switch-workspace').onclick = () => window.location.href = 'index.html';
+
+    // LOGOUT
+    document.getElementById('btn-logout').onclick = async () => {
+      await signOut(auth);
+      window.location.href = 'login.html';
+    };
+
+    // AUTH LISTEN & FIRESTORE REAL-TIME
+    onAuthStateChanged(auth, (user) => {
+      if (!user) {
+        window.location.href = 'login.html';
+        return;
+      }
+
+      currentUser = user;
+      document.getElementById('user-email-header').innerText = user.email;
+      document.getElementById('dropdown-email').innerText = user.email;
+      document.getElementById('user-avatar').innerText = user.email.charAt(0).toUpperCase();
+
+      if (!workspaceId) {
+        alert("Workspace tidak ditemukan!");
+        window.location.href = 'index.html';
+        return;
+      }
+
+      // 1. LISTEN DATA WORKSPACE
+      onSnapshot(doc(db, "workspaces", workspaceId), (docSnap) => {
+        if (docSnap.exists()) {
+          document.getElementById('workspace-title').innerText = docSnap.data().name || "Organisasi";
+        }
+      });
+
+      // 2. LISTEN ANGGOTA & UPDATE ROLE/DELETE
+      onSnapshot(collection(db, "workspaces", workspaceId, "members"), (snapshot) => {
+        const tbody = document.getElementById('members-table-body');
+        tbody.innerHTML = '';
+
+        const memberList = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+        const myData = memberList.find(m => m.id === user.uid);
+        if (myData) {
+          currentUserRole = (myData.role || "USER").toUpperCase();
+          const badge = document.getElementById('user-role-badge');
+          badge.innerText = currentUserRole;
+          badge.className = `inline-block text-[10px] font-bold px-2 py-0.5 rounded uppercase tracking-wider ${
+            currentUserRole === "ADMIN" ? "bg-purple-100 text-purple-700" :
+            currentUserRole === "EDITOR" ? "bg-blue-100 text-blue-700" : "bg-emerald-100 text-emerald-700"
+          }`;
+        }
+
+        memberList.forEach(member => {
+          const isMe = member.id === user.uid;
+          const tr = document.createElement('tr');
+          tr.className = "hover:bg-slate-50/50";
+
+          tr.innerHTML = `
+            <td class="py-3 px-2 font-medium text-slate-700">
+              ${member.email} ${isMe ? '<span class="text-indigo-600 font-bold">(Anda)</span>' : ''}
+            </td>
+            <td class="py-3 px-2">
+              <span class="px-2 py-0.5 rounded text-[10px] font-bold uppercase ${
+                member.role === "admin" ? "bg-purple-100 text-purple-700" :
+                member.role === "editor" ? "bg-blue-100 text-blue-700" : "bg-slate-100 text-slate-600"
+              }">${member.role || "user"}</span>
+            </td>
+            <td class="py-3 px-2 text-right">
+              ${isMe ? '<span class="text-slate-300 font-bold mr-3">-</span>' : `
+                <div class="flex items-center justify-end gap-2">
+                  ${currentUserRole === "ADMIN" ? `
+                    <select data-id="${member.id}" class="role-select bg-slate-50 border border-slate-200 rounded px-1.5 py-1 text-xs">
+                      <option value="user" ${member.role === 'user' ? 'selected' : ''}>User</option>
+                      <option value="editor" ${member.role === 'editor' ? 'selected' : ''}>Editor</option>
+                      <option value="admin" ${member.role === 'admin' ? 'selected' : ''}>Admin</option>
+                    </select>
+
+                    <button data-id="${member.id}" data-email="${member.email}" class="btn-delete-member p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded" title="Keluarkan Anggota">
+                      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  ` : ''}
+                </div>
+              `}
+            </td>
+          `;
+          tbody.appendChild(tr);
+        });
+
+        // Event Listener Ubah Role
+        document.querySelectorAll('.role-select').forEach(select => {
+          select.onchange = async (e) => {
+            const mId = e.target.dataset.id;
+            await updateDoc(doc(db, "workspaces", workspaceId, "members", mId), { role: e.target.value });
+          };
+        });
+
+        // Event Listener Hapus Anggota
+        document.querySelectorAll('.btn-delete-member').forEach(btn => {
+          btn.onclick = async (e) => {
+            const mId = btn.dataset.id;
+            const mEmail = btn.dataset.email;
+            if (confirm(`Keluarkan ${mEmail} dari organisasi?`)) {
+              await deleteDoc(doc(db, "workspaces", workspaceId, "members", mId));
+            }
+          };
+        });
+      });
+
+      // 3. LISTEN TRANSAKSI & SALDO
+      onSnapshot(collection(db, "workspaces", workspaceId, "transactions"), (snapshot) => {
+        const container = document.getElementById('tx-container');
+        container.innerHTML = '';
+
+        let inTotal = 0;
+        let outTotal = 0;
+
+        if (snapshot.empty) {
+          container.innerHTML = '<p class="text-xs text-slate-400 py-4 text-center">Belum ada transaksi.</p>';
+        } else {
+          snapshot.docs.forEach(d => {
+            const tx = d.data();
+            const amt = Number(tx.amount || 0);
+            if (tx.type === "IN" || amt > 0) inTotal += amt;
+            else outTotal += Math.abs(amt);
+
+            const div = document.createElement('div');
+            div.className = "py-3 flex items-center justify-between";
+            div.innerHTML = `
+              <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold ${tx.type === 'IN' || amt > 0 ? 'bg-emerald-100 text-emerald-600' : 'bg-rose-100 text-rose-600'}">
+                  ${tx.type === 'IN' || amt > 0 ? '↑' : '↓'}
+                </div>
+                <div>
+                  <p class="text-sm font-semibold text-slate-800">${tx.title || tx.description || 'Transaksi'}</p>
+                  <span class="text-[10px] text-slate-400 bg-slate-100 px-2 py-0.5 rounded">${tx.category || 'Umum'}</span>
+                </div>
+              </div>
+              <p class="text-sm font-bold ${tx.type === 'IN' || amt > 0 ? 'text-emerald-600' : 'text-rose-600'}">
+                ${tx.type === 'IN' || amt > 0 ? '+' : '-'}Rp ${Math.abs(amt).toLocaleString('id-ID')}
+              </p>
+            `;
+            container.appendChild(div);
+          });
+        }
+
+        document.getElementById('card-pemasukan').innerText = `Rp ${inTotal.toLocaleString('id-ID')}`;
+        document.getElementById('card-pengeluaran').innerText = `Rp ${outTotal.toLocaleString('id-ID')}`;
+        document.getElementById('card-saldo').innerText = `Rp ${(inTotal - outTotal).toLocaleString('id-ID')}`;
+      });
+    });
+  </script>
+</body>
+</html>
