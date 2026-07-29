@@ -133,26 +133,23 @@
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
-    import { getFirestore, doc, collection, onSnapshot, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
+    import { getFirestore, doc, collection, onSnapshot, getDocs, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    // --- PASTE KONFIGURASI FIREBASE ANDA DI SINI (JIKA BELUM DISESUAIKAN) ---
+    // --- PASTE KONFIGURASI FIREBASE BUDGETKU-E4ECE DI SINI ---
     const firebaseConfig = {
-    apiKey: "AIzaSyBqt0A9MIawPhLcIu_yOGiG4VG5-m4ZNgw",
-    authDomain: "budgetku-e4ece.firebaseapp.com",
-    projectId: "budgetku-e4ece",
-    storageBucket: "budgetku-e4ece.firebasestorage.app",
-    messagingSenderId: "718142379650",
-    appId: "1:718142379650:web:1fb64c6e75a8539d51869b"
+      apiKey: "AIzaSyBqt0A9MIawPhLcIu_yOGiG4VG5-m4ZNgw",
+      authDomain: "budgetku-e4ece.firebaseapp.com",
+      projectId: "budgetku-e4ece",
+      storageBucket: "budgetku-e4ece.firebasestorage.app",
+      messagingSenderId: "718142379650",
+      appId: "1:718142379650:web:1fb64c6e75a8539d51869b"
     };
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // Deteksi Workspace ID dari URL atau LocalStorage
-    const urlParams = new URLSearchParams(window.location.search);
-    const workspaceId = urlParams.get('id') || localStorage.getItem('activeWorkspaceId');
-
+    let activeWorkspaceId = new URLSearchParams(window.location.search).get('id') || localStorage.getItem('activeWorkspaceId');
     let currentUser = null;
     let currentUserRole = "USER";
 
@@ -174,19 +171,19 @@
     document.getElementById('btn-switch-workspace').onclick = () => window.location.href = '/';
 
     document.getElementById('btn-join-code').onclick = () => {
-      if (workspaceId) {
-        alert(`Kode Workspace Anda: ${workspaceId}`);
+      if (activeWorkspaceId) {
+        alert(`Kode Workspace Anda: ${activeWorkspaceId}`);
       }
     };
 
     // LOGOUT HANDLER
     document.getElementById('btn-logout').onclick = async () => {
       await signOut(auth);
-      window.location.reload();
+      window.location.href = '/login.html';
     };
 
     // AUTH & FIRESTORE REAL-TIME LISTENERS
-    onAuthStateChanged(auth, (user) => {
+    onAuthStateChanged(auth, async (user) => {
       if (!user) {
         window.location.href = '/login.html';
         return;
@@ -196,20 +193,32 @@
       document.getElementById('dropdown-email').innerText = user.email;
       document.getElementById('user-avatar').innerText = user.email.charAt(0).toUpperCase();
 
-      if (!workspaceId) {
-        alert("Workspace ID tidak ditemukan!");
-        return;
+      // JIKA WORKSPACE ID KOSONG, CARI OTOMATIS ORGANISASI PERTAMA DI DATABASE
+      if (!activeWorkspaceId) {
+        try {
+          const wsSnap = await getDocs(collection(db, "workspaces"));
+          if (!wsSnap.empty) {
+            activeWorkspaceId = wsSnap.docs[0].id;
+            localStorage.setItem('activeWorkspaceId', activeWorkspaceId);
+          } else {
+            alert("Belum ada organisasi yang terdaftar!");
+            return;
+          }
+        } catch (err) {
+          console.error("Gagal memuat workspace:", err);
+          return;
+        }
       }
 
       // 1. LISTEN WORKSPACE DATA
-      onSnapshot(doc(db, "workspaces", workspaceId), (docSnap) => {
+      onSnapshot(doc(db, "workspaces", activeWorkspaceId), (docSnap) => {
         if (docSnap.exists()) {
           document.getElementById('workspace-title').innerText = docSnap.data().name || "Organisasi";
         }
       });
 
       // 2. LISTEN ANGGOTA & HAPUS ANGGOTA
-      onSnapshot(collection(db, "workspaces", workspaceId, "members"), (snapshot) => {
+      onSnapshot(collection(db, "workspaces", activeWorkspaceId, "members"), (snapshot) => {
         const tbody = document.getElementById('members-table-body');
         tbody.innerHTML = '';
 
@@ -268,7 +277,7 @@
         document.querySelectorAll('.role-select').forEach(select => {
           select.onchange = async (e) => {
             const mId = e.target.dataset.id;
-            await updateDoc(doc(db, "workspaces", workspaceId, "members", mId), { role: e.target.value });
+            await updateDoc(doc(db, "workspaces", activeWorkspaceId, "members", mId), { role: e.target.value });
           };
         });
 
@@ -279,7 +288,7 @@
             const mEmail = btn.dataset.email;
             if (confirm(`Apakah Anda yakin ingin mengeluarkan ${mEmail} dari organisasi ini?`)) {
               try {
-                await deleteDoc(doc(db, "workspaces", workspaceId, "members", mId));
+                await deleteDoc(doc(db, "workspaces", activeWorkspaceId, "members", mId));
                 alert("Anggota berhasil dikeluarkan.");
               } catch (err) {
                 alert("Gagal mengeluarkan anggota: " + err.message);
@@ -290,7 +299,7 @@
       });
 
       // 3. LISTEN TRANSAKSI & KALKULASI SALDO
-      onSnapshot(collection(db, "workspaces", workspaceId, "transactions"), (snapshot) => {
+      onSnapshot(collection(db, "workspaces", activeWorkspaceId, "transactions"), (snapshot) => {
         const container = document.getElementById('tx-container');
         container.innerHTML = '';
 
