@@ -1,0 +1,10 @@
+﻿LAPORAN KAS: SAMPLE ORGANITATION
+PERIODE,2026-07
+SISA SALDO KAS,Rp 430.000
+TOTAL PEMASUKAN,Rp 500.000
+TOTAL PENGELUARAN,Rp 70.000
+
+Tanggal,Deskripsi,Kategori,Tipe,Nominal (Rp)
+29/7/2026,"Beli Kertas HVS","Operasional",Pengeluaran,-50000
+29/7/2026,"Iuran Bulanan","Iuran/Donasi",Pemasukan,500000
+29/7/2026,"Beli beras","Operasional",Pengeluaran,-20000
