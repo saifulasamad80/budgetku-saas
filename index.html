@@ -3,14 +3,14 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Dashboard Organisasi - BudgetKu SaaS</title>
+  <title>BudgetKu SaaS - Dashboard</title>
   <!-- Tailwind CSS CDN -->
   <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-slate-50 p-4 md:p-8 font-sans text-slate-800 min-h-screen">
   <div class="max-w-6xl mx-auto space-y-6">
 
-    <!-- 1. HEADER (PROFILE DROPDOWN & LOGOUT) -->
+    <!-- 1. HEADER (LENGKAP DENGAN KODE GABUNG & PROFILE DROPDOWN) -->
     <header class="flex items-center justify-between bg-white p-4 rounded-xl shadow-sm border border-slate-100">
       <div class="flex items-center gap-3">
         <button id="btn-back" class="p-2 hover:bg-slate-100 rounded-full transition-colors text-slate-600" title="Kembali ke Daftar Organisasi">
@@ -26,40 +26,43 @@
         </div>
       </div>
 
-      <!-- PROFILE MENU -->
-      <div class="relative">
-        <button id="btn-profile-toggle" class="flex items-center gap-2 p-1.5 hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-200">
-          <div id="user-avatar" class="w-9 h-9 rounded-full bg-slate-800 text-white font-semibold flex items-center justify-center text-sm shadow-sm">
-            U
-          </div>
-          <div class="hidden sm:block text-left pr-1">
-            <p id="user-email-header" class="text-xs font-semibold text-slate-700 truncate max-w-[120px]">Pengguna</p>
-            <p class="text-[10px] text-slate-400 capitalize">Akun Saya</p>
-          </div>
-          <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
-          </svg>
+      <!-- KANAN HEADER: TOMBOL KODE GABUNG + DROPDOWN PROFIL -->
+      <div class="flex items-center gap-2">
+        <button id="btn-join-code" class="px-3 py-1.5 bg-indigo-50 text-indigo-700 font-semibold text-xs rounded-lg hover:bg-indigo-100 transition-colors flex items-center gap-1.5">
+          <span>👥</span> Kode Gabung
         </button>
 
-        <!-- DROPDOWN MENU MELAYANG -->
-        <div id="profile-dropdown-menu" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-50">
-          <div class="px-4 py-2 border-b border-slate-100">
-            <p class="text-xs text-slate-400">Masuk sebagai</p>
-            <p id="dropdown-email" class="text-xs font-bold text-slate-800 truncate">-</p>
+        <!-- PROFILE DROPDOWN MENU -->
+        <div class="relative">
+          <button id="btn-profile-toggle" class="flex items-center gap-2 p-1.5 hover:bg-slate-100 rounded-lg transition-colors border border-transparent hover:border-slate-200">
+            <div id="user-avatar" class="w-8 h-8 rounded-full bg-slate-800 text-white font-bold flex items-center justify-center text-xs shadow-sm">
+              U
+            </div>
+            <svg class="w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+            </svg>
+          </button>
+
+          <!-- DROPDOWN POPUP -->
+          <div id="profile-dropdown-menu" class="hidden absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-slate-100 py-1.5 z-50">
+            <div class="px-4 py-2 border-b border-slate-100">
+              <p class="text-[10px] text-slate-400">Login sebagai</p>
+              <p id="dropdown-email" class="text-xs font-bold text-slate-800 truncate">-</p>
+            </div>
+            <button id="btn-switch-workspace" class="w-full text-left px-4 py-2 text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
+              </svg>
+              Ganti Organisasi
+            </button>
+            <div class="border-t border-slate-100 my-1"></div>
+            <button id="btn-logout" class="w-full text-left px-4 py-2 text-xs font-semibold text-rose-600 hover:bg-rose-50 flex items-center gap-2">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+              </svg>
+              Keluar / Logout
+            </button>
           </div>
-          <button id="btn-switch-workspace" class="w-full text-left px-4 py-2 text-xs text-slate-600 hover:bg-slate-50 flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
-            </svg>
-            Ganti Organisasi
-          </button>
-          <div class="border-t border-slate-100 my-1"></div>
-          <button id="btn-logout" class="w-full text-left px-4 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 flex items-center gap-2">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
-            </svg>
-            Keluar / Logout
-          </button>
         </div>
       </div>
     </header>
@@ -85,8 +88,8 @@
       <div class="flex items-center justify-between">
         <h2 class="font-bold text-slate-800">Riwayat Transaksi</h2>
         <div class="flex gap-2">
-          <button class="px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700">CSV</button>
-          <button class="px-3 py-1.5 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700">PDF</button>
+          <button class="px-3 py-1.5 bg-emerald-600 text-white text-xs font-bold rounded-lg hover:bg-emerald-700 transition-colors">CSV</button>
+          <button class="px-3 py-1.5 bg-rose-600 text-white text-xs font-bold rounded-lg hover:bg-rose-700 transition-colors">PDF</button>
         </div>
       </div>
       <div id="tx-container" class="divide-y divide-slate-100">
@@ -94,7 +97,7 @@
       </div>
     </div>
 
-    <!-- 4. KELOLA ANGGOTA & PERAN (DENGAN TOMBOL HAPUS) -->
+    <!-- 4. KELOLA ANGGOTA & PERAN (FITUR DELETE DI SINI) -->
     <div class="bg-white p-6 rounded-xl border border-slate-100 shadow-sm space-y-4">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
@@ -126,29 +129,34 @@
 
   </div>
 
-  <!-- FIREBASE LOGIC (VANILLA JS MODULE) -->
+  <!-- JAVASCRIPT LOGIC (FIREBASE V10) -->
   <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
     import { getAuth, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js";
     import { getFirestore, doc, collection, onSnapshot, updateDoc, deleteDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
 
-    // 1. ISI CONFIG FIREBASE DARI PROJECT ANDA
+    // --- PASTE KONFIGURASI FIREBASE ANDA DI SINI (JIKA BELUM DISESUAIKAN) ---
     const firebaseConfig = {
-      // Pastikan disesuaikan dengan konfigurasi Firebase milik Anda
+      apiKey: "PASTE_API_KEY_ANDA",
+      authDomain: "PASTE_AUTH_DOMAIN_ANDA",
+      projectId: "PASTE_PROJECT_ID_ANDA",
+      storageBucket: "PASTE_STORAGE_BUCKET_ANDA",
+      messagingSenderId: "PASTE_SENDER_ID_ANDA",
+      appId: "PASTE_APP_ID_ANDA"
     };
 
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
     const db = getFirestore(app);
 
-    // Ambil Workspace ID dari URL / LocalStorage
+    // Deteksi Workspace ID dari URL atau LocalStorage
     const urlParams = new URLSearchParams(window.location.search);
     const workspaceId = urlParams.get('id') || localStorage.getItem('activeWorkspaceId');
 
     let currentUser = null;
     let currentUserRole = "USER";
 
-    // TOGGLE DROPDOWN PROFIL
+    // TOGGLE PROFILE DROPDOWN
     const btnToggle = document.getElementById('btn-profile-toggle');
     const dropdownMenu = document.getElementById('profile-dropdown-menu');
 
@@ -161,48 +169,53 @@
       dropdownMenu.classList.add('hidden');
     });
 
-    // BACK & SWITCH WORKSPACE
-    document.getElementById('btn-back').onclick = () => window.location.href = 'index.html';
-    document.getElementById('btn-switch-workspace').onclick = () => window.location.href = 'index.html';
+    // NAVIGATION HANDLERS
+    document.getElementById('btn-back').onclick = () => window.location.href = '/';
+    document.getElementById('btn-switch-workspace').onclick = () => window.location.href = '/';
 
-    // LOGOUT
-    document.getElementById('btn-logout').onclick = async () => {
-      await signOut(auth);
-      window.location.href = 'login.html';
+    document.getElementById('btn-join-code').onclick = () => {
+      if (workspaceId) {
+        alert(`Kode Workspace Anda: ${workspaceId}`);
+      }
     };
 
-    // AUTH LISTEN & FIRESTORE REAL-TIME
+    // LOGOUT HANDLER
+    document.getElementById('btn-logout').onclick = async () => {
+      await signOut(auth);
+      window.location.reload();
+    };
+
+    // AUTH & FIRESTORE REAL-TIME LISTENERS
     onAuthStateChanged(auth, (user) => {
       if (!user) {
-        window.location.href = 'login.html';
+        window.location.href = '/login.html';
         return;
       }
 
       currentUser = user;
-      document.getElementById('user-email-header').innerText = user.email;
       document.getElementById('dropdown-email').innerText = user.email;
       document.getElementById('user-avatar').innerText = user.email.charAt(0).toUpperCase();
 
       if (!workspaceId) {
-        alert("Workspace tidak ditemukan!");
-        window.location.href = 'index.html';
+        alert("Workspace ID tidak ditemukan!");
         return;
       }
 
-      // 1. LISTEN DATA WORKSPACE
+      // 1. LISTEN WORKSPACE DATA
       onSnapshot(doc(db, "workspaces", workspaceId), (docSnap) => {
         if (docSnap.exists()) {
           document.getElementById('workspace-title').innerText = docSnap.data().name || "Organisasi";
         }
       });
 
-      // 2. LISTEN ANGGOTA & UPDATE ROLE/DELETE
+      // 2. LISTEN ANGGOTA & HAPUS ANGGOTA
       onSnapshot(collection(db, "workspaces", workspaceId, "members"), (snapshot) => {
         const tbody = document.getElementById('members-table-body');
         tbody.innerHTML = '';
 
         const memberList = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
         const myData = memberList.find(m => m.id === user.uid);
+        
         if (myData) {
           currentUserRole = (myData.role || "USER").toUpperCase();
           const badge = document.getElementById('user-role-badge');
@@ -238,12 +251,12 @@
                       <option value="admin" ${member.role === 'admin' ? 'selected' : ''}>Admin</option>
                     </select>
 
-                    <button data-id="${member.id}" data-email="${member.email}" class="btn-delete-member p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded" title="Keluarkan Anggota">
+                    <button data-id="${member.id}" data-email="${member.email}" class="btn-delete-member p-1.5 text-rose-500 hover:text-rose-700 hover:bg-rose-50 rounded transition-colors" title="Keluarkan Anggota">
                       <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
                       </svg>
                     </button>
-                  ` : ''}
+                  ` : '<span class="text-slate-300 font-bold mr-3">-</span>'}
                 </div>
               `}
             </td>
@@ -251,7 +264,7 @@
           tbody.appendChild(tr);
         });
 
-        // Event Listener Ubah Role
+        // Event Listener: Ubah Role
         document.querySelectorAll('.role-select').forEach(select => {
           select.onchange = async (e) => {
             const mId = e.target.dataset.id;
@@ -259,19 +272,24 @@
           };
         });
 
-        // Event Listener Hapus Anggota
+        // Event Listener: Hapus Anggota
         document.querySelectorAll('.btn-delete-member').forEach(btn => {
-          btn.onclick = async (e) => {
+          btn.onclick = async () => {
             const mId = btn.dataset.id;
             const mEmail = btn.dataset.email;
-            if (confirm(`Keluarkan ${mEmail} dari organisasi?`)) {
-              await deleteDoc(doc(db, "workspaces", workspaceId, "members", mId));
+            if (confirm(`Apakah Anda yakin ingin mengeluarkan ${mEmail} dari organisasi ini?`)) {
+              try {
+                await deleteDoc(doc(db, "workspaces", workspaceId, "members", mId));
+                alert("Anggota berhasil dikeluarkan.");
+              } catch (err) {
+                alert("Gagal mengeluarkan anggota: " + err.message);
+              }
             }
           };
         });
       });
 
-      // 3. LISTEN TRANSAKSI & SALDO
+      // 3. LISTEN TRANSAKSI & KALKULASI SALDO
       onSnapshot(collection(db, "workspaces", workspaceId, "transactions"), (snapshot) => {
         const container = document.getElementById('tx-container');
         container.innerHTML = '';
@@ -280,7 +298,7 @@
         let outTotal = 0;
 
         if (snapshot.empty) {
-          container.innerHTML = '<p class="text-xs text-slate-400 py-4 text-center">Belum ada transaksi.</p>';
+          container.innerHTML = '<p class="text-xs text-slate-400 py-4 text-center">Belum ada riwayat transaksi.</p>';
         } else {
           snapshot.docs.forEach(d => {
             const tx = d.data();
