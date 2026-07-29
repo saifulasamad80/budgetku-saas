@@ -684,10 +684,11 @@
             });
         }
 
-        // EKSPOR CSV & PDF
+        // EKSPOR CSV (DENGAN RINGKASAN SALDO & FORMAT EXCEL)
         safeAddEvent('btn-export-csv', 'click', () => {
             const filterInput = document.getElementById('filter-bulan')?.value;
             let filtered = allTransactionsCache;
+
             if (filterInput) {
                 filtered = allTransactionsCache.filter(item => {
                     const d = new Date(item.timestamp);
@@ -697,15 +698,46 @@
 
             if (filtered.length === 0) return alert("Tidak ada data untuk diekspor!");
 
-            let csvContent = "data:text/csv;charset=utf-8,Tanggal,Deskripsi,Kategori,Tipe,Nominal (Rp)\n";
+            // 1. Kalkulasi Total Pemasukan, Pengeluaran, dan Saldo
+            let totalPemasukan = 0;
+            let totalPengeluaran = 0;
+            filtered.forEach(item => {
+                if (item.tipe === 'pemasukan') totalPemasukan += Number(item.nominal || 0);
+                else totalPengeluaran += Number(item.nominal || 0);
+            });
+            const sisaSaldo = totalPemasukan - totalPengeluaran;
+            const namaOrg = document.getElementById('nama-organisasi-aktif')?.innerText || 'Organisasi';
+
+            // 2. Karakter UTF-8 BOM agar terbaca rapi di Microsoft Excel
+            let csvContent = "\uFEFF"; 
+
+            // 3. Blok Ringkasan Saldo di Atas Tabel
+            csvContent += `LAPORAN KAS: ${namaOrg.toUpperCase()}\n`;
+            csvContent += `PERIODE,${filterInput || 'Semua Periode'}\n`;
+            csvContent += `SISA SALDO KAS,Rp ${sisaSaldo.toLocaleString('id-ID')}\n`;
+            csvContent += `TOTAL PEMASUKAN,Rp ${totalPemasukan.toLocaleString('id-ID')}\n`;
+            csvContent += `TOTAL PENGELUARAN,Rp ${totalPengeluaran.toLocaleString('id-ID')}\n\n`;
+
+            // 4. Header Tabel
+            csvContent += "Tanggal,Deskripsi,Kategori,Tipe,Nominal (Rp)\n";
+
+            // 5. Baris Transaksi
             filtered.forEach(item => {
                 const dStr = new Date(item.timestamp).toLocaleDateString('id-ID');
-                csvContent += `"${dStr}","${item.nama}","${item.kategori || '-'}","${item.tipe}",${item.nominal}\n`;
+                const namaClean = `"${(item.nama || '').replace(/"/g, '""')}"`;
+                const katClean = `"${(item.kategori || '-').replace(/"/g, '""')}"`;
+                const tipeText = item.tipe === 'pemasukan' ? 'Pemasukan' : 'Pengeluaran';
+                const nominalVal = item.tipe === 'pemasukan' ? item.nominal : -item.nominal;
+
+                csvContent += `${dStr},${namaClean},${katClean},${tipeText},${nominalVal}\n`;
             });
 
+            // 6. Eksekusi Unduh File
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
             const link = document.createElement("a");
-            link.setAttribute("href", encodeURI(csvContent));
-            link.setAttribute("download", `Laporan_Kas_${filterInput || 'Semua'}.csv`);
+            link.setAttribute("href", url);
+            link.setAttribute("download", `Laporan_Kas_${namaOrg}_${filterInput || 'Semua'}.csv`);
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);

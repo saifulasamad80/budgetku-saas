@@ -1,0 +1,12 @@
+Rekomendasi Penasihat
+Hentikan niat mengedit kode utama langsung di web GitHub.
+
+Gunakan alur standar pengembang profesional:
+
+Edit & Uji kode di VS Code + Browser lokal hingga 100% lancar.
+
+git add .
+
+git commit -m "deskripsi"
+
+git push origin main
