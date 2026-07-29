@@ -1,0 +1,319 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Dashboard - BudgetKu</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        .no-scrollbar::-webkit-scrollbar { display: none; }
+        .no-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800 antialiased min-h-screen flex flex-col items-center">
+
+    <!-- Layar Pemuatan -->
+    <div id="loading-screen" class="fixed inset-0 bg-white z-50 flex flex-col justify-center items-center">
+        <div class="animate-spin rounded-full h-10 w-10 border-b-4 border-indigo-600 mb-4"></div>
+        <p class="text-gray-500 font-medium animate-pulse">Memuat ruang kerja...</p>
+    </div>
+
+    <!-- Konten Utama Dashboard -->
+    <div id="dashboard-content" class="w-full max-w-md hidden flex-col min-h-screen relative pb-24">
+        
+        <!-- Header -->
+        <header class="bg-indigo-600 text-white px-5 pt-8 pb-6 rounded-b-3xl shadow-md">
+            <div class="flex justify-between items-start mb-6">
+                <div>
+                    <h1 id="ws-name" class="text-xl font-bold truncate max-w-[200px]">Memuat...</h1>
+                    <span id="ws-role" class="inline-block mt-1 px-2.5 py-0.5 bg-indigo-500 text-indigo-100 text-xs font-semibold rounded-full uppercase tracking-wider">Role</span>
+                </div>
+                <button id="btn-switch-ws" class="text-indigo-100 hover:text-white bg-indigo-500 hover:bg-indigo-400 px-3 py-1.5 rounded-lg text-sm font-medium transition">
+                    &rightleftarrows; Ganti
+                </button>
+            </div>
+
+            <!-- Ringkasan Saldo -->
+            <div class="text-center">
+                <p class="text-indigo-200 text-sm font-medium mb-1">Total Saldo Kas</p>
+                <h2 id="total-balance" class="text-3xl font-extrabold tracking-tight">Rp 0</h2>
+            </div>
+            
+            <div class="flex justify-between mt-6 bg-indigo-700/50 rounded-2xl p-4 border border-indigo-500/30">
+                <div class="w-1/2 border-r border-indigo-500/50 pr-4">
+                    <p class="text-indigo-200 text-xs mb-1">Pemasukan</p>
+                    <p id="total-income" class="font-bold text-green-300">Rp 0</p>
+                </div>
+                <div class="w-1/2 pl-4">
+                    <p class="text-indigo-200 text-xs mb-1">Pengeluaran</p>
+                    <p id="total-expense" class="font-bold text-red-300">Rp 0</p>
+                </div>
+            </div>
+        </header>
+
+        <!-- Daftar Transaksi -->
+        <main class="flex-1 px-5 pt-6">
+            <div class="flex justify-between items-end mb-4">
+                <h3 class="text-lg font-bold text-gray-800">Riwayat Transaksi</h3>
+                <span class="text-xs font-medium text-gray-400">Bulan Ini</span>
+            </div>
+
+            <div id="tx-empty" class="hidden flex-col items-center justify-center py-12 text-center">
+                <div class="bg-gray-100 p-4 rounded-full mb-3 text-gray-400">
+                    <svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path></svg>
+                </div>
+                <p class="text-gray-500 text-sm">Belum ada transaksi dicatat.</p>
+            </div>
+
+            <div id="tx-list" class="flex flex-col gap-3">
+                <!-- Baris transaksi dirender di sini -->
+            </div>
+        </main>
+
+        <!-- Floating Action Button (FAB) -->
+        <div class="fixed bottom-6 w-full max-w-md px-5 pointer-events-none flex justify-center">
+            <button id="btn-show-add-tx" class="pointer-events-auto shadow-lg shadow-indigo-200 bg-indigo-600 hover:bg-indigo-700 text-white font-bold px-6 py-4 rounded-full flex items-center gap-2 transition transform active:scale-95">
+                <span class="text-2xl leading-none -mt-1">+</span> Tambah Transaksi
+            </button>
+        </div>
+    </div>
+
+    <!-- Modal Tambah Transaksi -->
+    <div id="modal-tx" class="fixed inset-0 bg-black bg-opacity-40 z-50 hidden flex-col justify-end sm:justify-center items-center">
+        <div class="bg-white w-full max-w-md sm:rounded-2xl rounded-t-2xl p-6 shadow-xl transform transition-transform">
+            <div class="flex justify-between items-center mb-5">
+                <h3 class="text-xl font-bold text-gray-800">Catat Transaksi</h3>
+                <button class="close-modal text-gray-400 text-2xl leading-none hover:text-gray-600">&times;</button>
+            </div>
+            
+            <form id="form-tx">
+                <!-- Tab Jenis Transaksi -->
+                <div class="flex bg-gray-100 p-1 rounded-xl mb-5">
+                    <label class="flex-1 text-center cursor-pointer">
+                        <input type="radio" name="tx_type" value="income" class="peer hidden" checked>
+                        <div class="peer-checked:bg-white peer-checked:text-green-600 peer-checked:shadow-sm py-2 rounded-lg text-sm font-semibold text-gray-500 transition">Pemasukan</div>
+                    </label>
+                    <label class="flex-1 text-center cursor-pointer">
+                        <input type="radio" name="tx_type" value="expense" class="peer hidden">
+                        <div class="peer-checked:bg-white peer-checked:text-red-600 peer-checked:shadow-sm py-2 rounded-lg text-sm font-semibold text-gray-500 transition">Pengeluaran</div>
+                    </label>
+                </div>
+
+                <div class="mb-4">
+                    <label class="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wider">Jumlah (Rp)</label>
+                    <input type="number" id="input-tx-amount" required min="1" placeholder="0" class="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-3 text-lg font-bold text-gray-800 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <div class="mb-6">
+                    <label class="block text-xs font-medium text-gray-500 mb-1 uppercase tracking-wider">Keterangan / Judul</label>
+                    <input type="text" id="input-tx-note" required placeholder="Contoh: Iuran bulanan, Beli galon..." class="w-full bg-gray-50 border border-gray-300 rounded-xl px-4 py-3 focus:outline-none focus:ring-2 focus:ring-indigo-500">
+                </div>
+
+                <button type="submit" id="btn-submit-tx" class="w-full bg-indigo-600 text-white font-bold py-3.5 rounded-xl shadow-sm hover:bg-indigo-700 transition">Simpan Transaksi</button>
+            </form>
+        </div>
+    </div>
+
+<!-- Script Firebase SDK (Versi Diagnostic & Aggressive Routing) -->
+    <script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { 
+            getFirestore, collection, addDoc, serverTimestamp, 
+            query, orderBy, onSnapshot, doc, getDoc, deleteDoc 
+        } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyBqt0A9MIawPhLcIu_yOGiG4VG5-m4ZNgw",
+            authDomain: "budgetku-e4ece.firebaseapp.com",
+            projectId: "budgetku-e4ece",
+            storageBucket: "budgetku-e4ece.firebasestorage.app",
+            messagingSenderId: "718142379650",
+            appId: "1:718142379650:web:1fb64c6e75a8539d51869b"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        let currentUser = null;
+        const activeWsId = localStorage.getItem('budgetku_active_ws');
+        const activeRole = localStorage.getItem('budgetku_active_role');
+
+        const ui = {
+            loadingScreen: document.getElementById('loading-screen'),
+            dashboardContent: document.getElementById('dashboard-content'),
+            wsName: document.getElementById('ws-name'),
+            wsRole: document.getElementById('ws-role'),
+            btnSwitchWs: document.getElementById('btn-switch-ws'),
+            totalBalance: document.getElementById('total-balance'),
+            totalIncome: document.getElementById('total-income'),
+            totalExpense: document.getElementById('total-expense'),
+            txEmpty: document.getElementById('tx-empty'),
+            txList: document.getElementById('tx-list'),
+            btnShowAddTx: document.getElementById('btn-show-add-tx'),
+            modalTx: document.getElementById('modal-tx'),
+            closeModals: document.querySelectorAll('.close-modal'),
+            formTx: document.getElementById('form-tx'),
+            btnSubmitTx: document.getElementById('btn-submit-tx')
+        };
+
+        const formatRupiah = (angka) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(angka);
+
+        onAuthStateChanged(auth, async (user) => {
+            if (user) {
+                currentUser = user;
+                if (!activeWsId) { window.location.replace('./index.html'); return; }
+                await loadWorkspaceDetails();
+                listenToTransactions();
+            } else {
+                window.location.replace('./login.html'); 
+            }
+        });
+
+        async function loadWorkspaceDetails() {
+            try {
+                const wsSnap = await getDoc(doc(db, 'workspaces', activeWsId));
+                if (wsSnap.exists()) {
+                    ui.wsName.innerText = wsSnap.data().name;
+                    ui.wsRole.innerText = activeRole || 'Anggota';
+                } else {
+                    localStorage.removeItem('budgetku_active_ws'); window.location.replace('./index.html');
+                }
+            } catch (error) { ui.wsName.innerText = "Error Memuat Data"; }
+        }
+
+        function listenToTransactions() {
+            const txRef = collection(db, `workspaces/${activeWsId}/transactions`);
+            const q = query(txRef, orderBy('createdAt', 'desc'));
+
+            // Mendapatkan bulan dan tahun saat ini untuk filter
+            const now = new Date();
+            const currentMonth = now.getMonth();
+            const currentYear = now.getFullYear();
+
+            onSnapshot(q, (snapshot) => {
+                ui.txList.innerHTML = '';
+                let balance = 0, income = 0, expense = 0;
+                let hasVisibleTx = false;
+
+                snapshot.forEach((docSnap) => {
+                    const tx = docSnap.data();
+                    // Abaikan transaksi yang belum memiliki timestamp dari server
+                    if (!tx.createdAt) return; 
+                    
+                    const txDate = tx.createdAt.toDate();
+                    
+                    // Filter Klien: Hanya proses jika transaksi terjadi di bulan dan tahun yang sama
+                    if (txDate.getMonth() === currentMonth && txDate.getFullYear() === currentYear) {
+                        hasVisibleTx = true;
+                        const amount = Number(tx.amount);
+                        
+                        if (tx.type === 'income') {
+                            income += amount; balance += amount;
+                        } else {
+                            expense += amount; balance -= amount;
+                        }
+                        renderTransactionCard(docSnap.id, tx, txDate);
+                    }
+                });
+
+                if (!hasVisibleTx) ui.txEmpty.classList.remove('hidden');
+                else ui.txEmpty.classList.add('hidden');
+
+                ui.totalBalance.innerText = formatRupiah(balance);
+                ui.totalIncome.innerText = formatRupiah(income);
+                ui.totalExpense.innerText = formatRupiah(expense);
+
+                ui.loadingScreen.classList.add('hidden');
+                ui.dashboardContent.classList.remove('hidden');
+                ui.dashboardContent.classList.add('flex');
+            });
+        }
+
+        function renderTransactionCard(id, tx, dateObj) {
+            const isIncome = tx.type === 'income';
+            const colorClass = isIncome ? 'text-green-600' : 'text-red-600';
+            const sign = isIncome ? '+' : '-';
+            const icon = isIncome 
+                ? `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 11l5-5m0 0l5 5m-5-5v12"></path>` 
+                : `<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 13l-5 5m0 0l-5-5m5 5V6"></path>`; 
+            
+            const dateStr = dateObj.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+
+            const card = document.createElement('div');
+            card.className = "flex items-center justify-between p-4 bg-white border border-gray-100 rounded-2xl shadow-sm group relative overflow-hidden";
+            card.innerHTML = `
+                <div class="flex items-center gap-3 w-3/4">
+                    <div class="p-2 rounded-xl ${isIncome ? 'bg-green-100 text-green-600' : 'bg-red-100 text-red-600'} flex-shrink-0">
+                        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">${icon}</svg>
+                    </div>
+                    <div class="truncate">
+                        <p class="text-sm font-bold text-gray-800 truncate">${tx.note}</p>
+                        <p class="text-xs text-gray-400 font-medium">${dateStr}</p>
+                    </div>
+                </div>
+                <div class="text-right flex flex-col items-end justify-center w-1/4 relative">
+                    <p class="text-sm font-bold ${colorClass} truncate w-full">${sign} ${formatRupiah(tx.amount)}</p>
+                    
+                    <!-- Tombol Hapus (Tersembunyi, muncul saat hover) -->
+                    <button onclick="window.deleteTx('${id}')" class="absolute -right-2 top-1/2 -translate-y-1/2 bg-red-500 text-white p-2 rounded-lg opacity-0 group-hover:opacity-100 group-hover:right-0 transition-all duration-200 shadow-md ${activeRole === 'reader' ? 'hidden' : ''}">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"></path></svg>
+                    </button>
+                </div>
+            `;
+            ui.txList.appendChild(card);
+        }
+
+        // Ekspos fungsi hapus ke window agar bisa dipanggil dari inline onclick HTML
+        window.deleteTx = async (txId) => {
+            if (activeRole === 'reader') return;
+            if(confirm('Hapus transaksi ini? Saldo akan dihitung ulang secara otomatis.')) {
+                try {
+                    await deleteDoc(doc(db, `workspaces/${activeWsId}/transactions`, txId));
+                } catch (error) {
+                    alert("Gagal menghapus transaksi.");
+                }
+            }
+        };
+
+        ui.formTx.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const originalText = ui.btnSubmitTx.innerText;
+            ui.btnSubmitTx.innerText = "Menyimpan...";
+            ui.btnSubmitTx.disabled = true;
+
+            const amount = document.getElementById('input-tx-amount').value;
+            const note = document.getElementById('input-tx-note').value;
+            const type = document.querySelector('input[name="tx_type"]:checked').value;
+
+            try {
+                await addDoc(collection(db, `workspaces/${activeWsId}/transactions`), {
+                    amount: Number(amount),
+                    note: note,
+                    type: type,
+                    createdAt: serverTimestamp(),
+                    createdBy: currentUser.uid
+                });
+                ui.formTx.reset();
+                ui.modalTx.classList.add('hidden');
+            } catch (error) { alert("Gagal menyimpan."); } 
+            finally {
+                ui.btnSubmitTx.innerText = originalText;
+                ui.btnSubmitTx.disabled = false;
+            }
+        });
+
+        ui.btnShowAddTx.onclick = () => {
+            if (activeRole === 'reader') { alert("Hanya berstatus Pembaca."); return; }
+            ui.modalTx.classList.remove('hidden');
+        };
+        ui.closeModals.forEach(btn => btn.onclick = () => ui.modalTx.classList.add('hidden'));
+        ui.btnSwitchWs.onclick = () => {
+            localStorage.removeItem('budgetku_active_ws');
+            localStorage.removeItem('budgetku_active_role');
+            window.location.replace('./index.html');
+        };
+    </script>
+</body>
+</html>
